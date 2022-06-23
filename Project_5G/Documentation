@@ -1,0 +1,5 @@
+#Run docker container:
+ docker container run -it alpine /bin/sh
+
+ #Install Wireguard
+ apk add -U wireguard-tools

@@ -1,0 +1,24 @@
+version: '3.9'
+
+services:
+  app:
+    build:
+      context: .
+    image: 5g-api/armando
+    container_name: api-armando
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
+    ports:
+      - 8080:8080
+    volumes:
+      - ./first_django_project:/first_django_project
+    environment:
+      - SECRET_KEY=devsecretkey
+      - DEBUG=1
+      - DB_HOST=db
+      - DB_NAME=devdb
+      - DB_USER=devuser
+      - DB_PASS=changeme
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8080"
