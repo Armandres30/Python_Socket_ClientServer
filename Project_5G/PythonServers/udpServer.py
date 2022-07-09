@@ -38,6 +38,8 @@ while True:
 	time.sleep(10)
 	kill.set()
 	size = len(databus)
+	if size == 0:
+		size = 1
 	for i in range(0, size-1):
 		current = int.from_bytes(databus[i][0:4], byteorder='big')
 		next = int.from_bytes(databus[i+1][0:4], byteorder='big')
@@ -50,7 +52,7 @@ while True:
 	print("Number of missing packets: ",miss)
 	print("Packet loss: ", float(miss/size))
 
-	sock = socket.socket(socket.AF_INET6, socket.SOCK_RAW)
+	sock = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
 	sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 	#sock.bind(('', addr))
 
