@@ -10,11 +10,8 @@ import _pickle as cPickle
 
 sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)      # For UDP
 
-udp_host = "127.0.0.1" #socket.gethostbyname("")	 	# Host IP
+udp_host = socket.gethostbyname("")	 	# Host IP
 udp_port = 12345			        # specified port to connect
-
-server_port = 12000
-sock.bind(("127.0.0.1", server_port))
 
 print("UDP target IP:", udp_host)
 print("UDP target Port:", udp_port)
@@ -41,14 +38,26 @@ else:
             size = len(frame)
             p = struct.pack('I', size)
             msg.append(p + frame) 
+            print(type(p+frame))
+            print(len(p))
+            print(len(frame))
             frame_str = str(frame)
             package_size = 1000
             frame_size = len(frame)
             elements = frame_size/package_size
             for i in range(0,int(elements)):
                 subframe = frame_str[int(i*package_size):int((i+1)*package_size)]
-                #print(len(subframe))
+                print(len(subframe))
                 sock.sendto(bytes(subframe, encoding='utf-8'),(udp_host,udp_port))
+                #sock.sendto(bytes(msg, encoding='utf-8'),(udp_host,udp_port))
+                '''
+                received_bytes, peer = sock.recvfrom(512)
+
+                print("Received %s from %s:%u" % (received_bytes.decode('utf8'), peer[0], peer[1]))
+                
+                '''
+                break
+
             break
         else:
            # input_video.set(cv2.cv.CV_CAP_PROP_POS_FRAMES, pos_frame-1)
