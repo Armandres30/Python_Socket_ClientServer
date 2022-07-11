@@ -13,6 +13,9 @@ sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)      # For UDP
 udp_host = "127.0.0.1" #socket.gethostbyname("")	 	# Host IP
 udp_port = 12345			        # specified port to connect
 
+path_id = 1
+
+
 server_port = 12000
 sock.bind(("127.0.0.1", server_port))
 
@@ -44,11 +47,15 @@ else:
             frame_str = str(frame)
             package_size = 1000
             frame_size = len(frame)
-            elements = frame_size/package_size
+            elements = frame_size / package_size
+
+            time_stamp = int(time.time())
+            headers = struct.pack('bi', path_id, time_stamp)
+
             for i in range(0,int(elements)):
                 subframe = frame_str[int(i*package_size):int((i+1)*package_size)]
                 #print(len(subframe))
-                sock.sendto(bytes(subframe, encoding='utf-8'),(udp_host,udp_port))
+                sock.sendto(headers + bytes(subframe, encoding='utf-8'),(udp_host,udp_port))
             break
         else:
            # input_video.set(cv2.cv.CV_CAP_PROP_POS_FRAMES, pos_frame-1)

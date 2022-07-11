@@ -1,6 +1,7 @@
 #!usr/bin/python
 
 import socket
+import struct
 import threading
 import time
 
@@ -46,7 +47,13 @@ while True:
 try:
 	while True:
 		print("Waiting for client...")
-		data,addr = sock.recvfrom(1024)	        #receive data from client
+		packet,addr = sock.recvfrom(1024)	        #receive data from client
+		
+		headers = packet[0:7]
+		path_id, time_stamp = struct.unpack('bi', headers)
+		
+		data = packet[7:]
+		
 		count+=1
 		#kill.set()
 		#time.sleep(1)
