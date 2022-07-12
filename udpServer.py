@@ -49,10 +49,10 @@ try:
 		print("Waiting for client...")
 		packet,addr = sock.recvfrom(1024)	        #receive data from client
 		
-		headers = packet[0:7]
+		headers = packet[0:8]
 		path_id, time_stamp = struct.unpack('bi', headers)
 		
-		data = packet[7:]
+		data = packet[8:]
 		
 		count+=1
 		#kill.set()
