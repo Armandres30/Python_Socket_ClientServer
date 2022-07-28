@@ -4,6 +4,8 @@ import socket
 import struct
 import threading
 import time
+from datetime import datetime
+import numpy as np
 
 ## Ressources based on:
 ## https://tutorialmeta.com/question/python-udp-socket-has-packet-loss-every-65536-packets
@@ -32,7 +34,12 @@ miss = 0
 #p.start()
 databus = []
 count = 0
+total = 0
+total_miss = 0
 
+t1 = []
+t2 = []
+Dj = []
 
 while True:
 	try:
@@ -49,32 +56,74 @@ try:
 		print("Waiting for client...")
 		packet,addr = sock.recvfrom(1024)	        #receive data from client
 		
-		headers = packet[0:8]
-		path_id, time_stamp = struct.unpack('bi', headers)
-		
-		data = packet[8:]
+		headers = packet[0:8] #get headers from packet
+		path_id, start_time = struct.unpack('bi', headers)	#get path_id and time_stamp from headers
+		end_time = int(time.time())
+
+		delay = end_time - start_time
+
+		t1.append(start_time)
+		t2.append(end_time)
+
+		## Calculate jitter
+		if count > 1:
+			for i in range(1,count):
+				Dj.append((t2[i]-t1[i]) - (t2[i-1]-t1[i-1])) #Get array of delays
+		j = np.array(Dj)
+		jitter = j.mean() #Jitter is meand deviation of delays 
+
+		data = packet[8:]	#get data from packet
 		
 		count+=1
 		#kill.set()
 		#time.sleep(1)
-		size = len(data)
-		databus.append(list)
+		size = len(data)	# get size of data
+		databus.append(packet)
+		total = total + size
+		miss = 0
+		length = len(databus)
+		step = 0
+
+		start = int.from_bytes(databus[0][0:4], byteorder='big')
+		end = int.from_bytes(databus[length-1][0:4], byteorder='big')
+		print("start: ",start)
+		print("end: ",end)
+		total = end - start + 1
+		print("Number of packets: ",total)
 		
 		if len(databus) >= 1000:
 			for i in range(0, size-1):
 				current = int.from_bytes(databus[i][0:4], byteorder='big')
 				next = int.from_bytes(databus[i+1][0:4], byteorder='big')
 				step = next - current
+				if step < 0:
+					print("out of order detected!!!")
+					break
 
-				miss = miss + step
+			miss = miss + step
 		
+		total_miss = total_miss + miss
+		#"""
+		print("Received Message:",data," from ",addr)
 
-		print("Received Messages:",data," from",addr)
+		print("Start Time: ", start_time)
+		print("End Time: ", end_time)
+
+		print("Path ID: ", path_id)
+		print("Delay: ", delay, "s")
+
+		print("Jitter: ", jitter)
+
+		print("Step: ", step)
 		print("Size of Message: "+str(size))
 		print("Count Messages sent: " +  str(count))
 
 		print("Number of missing packets: ",miss)
+		print("Number of packets: ",total)
+		print("Total Miss: ", total_miss)
 		print("Packet loss: ", float(miss/size))
+		print("Packet loss Total: ", float(total_miss/total))
+		#"""
 except KeyboardInterrupt:
     pass
 	
