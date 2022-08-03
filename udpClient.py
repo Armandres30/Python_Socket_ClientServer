@@ -1,5 +1,6 @@
 #!usr/bin/python
 
+from queue import Queue
 import socket
 import time
 import struct
@@ -8,12 +9,28 @@ import sys
 import os
 import _pickle as cPickle
 
+class Path:
+    def __init__(self, id, socket):
+        self.id = id
+        self.socket = socket
+        self.target = (udp_host, udp_port)
+
+def create_transport_paths() -> Queue:
+    queue = Queue(paths_count)
+    
+    for i in range(paths_count):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        path = Path(i + 1, sock)
+        queue.put(path)
+
+    return queue
+
 sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)      # For UDP
 
 udp_host = "127.0.0.1" #socket.gethostbyname("")	 	# Host IP
 udp_port = 12345			        # specified port to connect
 
-path_id = 1
+paths_count = 5
 
 
 server_port = 12000
@@ -23,12 +40,14 @@ print("UDP target IP:", udp_host)
 print("UDP target Port:", udp_port)
 
 # Get path to video = current_path + video filename
-path = os.path.abspath(os.getcwd()) + "/short_video.mp4"
+file_path = os.path.abspath(os.getcwd()) + "/short_video.mp4"
 
 msg = []
 
+queue = create_transport_paths()
+
 # Read video file frames
-input_video = cv2.VideoCapture(path)
+input_video = cv2.VideoCapture(file_path)
 if input_video.isOpened() == False:
     print("Video not found")
     sys.exit(1)
@@ -49,13 +68,18 @@ else:
             frame_size = len(frame)
             elements = frame_size / package_size
 
-            time_stamp = int(time.time())
-            headers = struct.pack('bi', path_id, time_stamp)
 
             for i in range(0,int(elements)):
+                path = queue.get()
+
+                time_stamp = int(time.time())
+                headers = struct.pack('bi', path.id, time_stamp)
+
                 subframe = frame_str[int(i*package_size):int((i+1)*package_size)]
-                #print(len(subframe))
-                sock.sendto(headers + bytes(subframe, encoding='utf-8'),(udp_host,udp_port))
+                
+                path.socket.sendto(headers + bytes(subframe, encoding='utf-8'), path.target)
+
+                queue.put(path)
             break
         else:
            # input_video.set(cv2.cv.CV_CAP_PROP_POS_FRAMES, pos_frame-1)
@@ -112,6 +136,8 @@ sock.sendto(bytes(udp_header + msg, encoding='utf-8'),(udp_host,udp_port))		# Se
 
 
 #Our udpServer.py is up and running, so now we try to run the udpclient.py script,
+
+
 
 def ip2int(ip_addr):
     if ip_addr == 'localhost':
