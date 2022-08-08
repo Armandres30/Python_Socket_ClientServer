@@ -68,7 +68,7 @@ else:
             frame_size = len(frame)
             elements = frame_size / package_size
 
-            sequence_number = 0
+            sequence_number = 1
 
             for i in range(0,int(elements)):
                 path = queue.get()

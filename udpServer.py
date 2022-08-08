@@ -57,6 +57,8 @@ try:
 		packet,addr = sock.recvfrom(1024)	        #receive data from client
 		
 		headers = packet[0:12] #get headers from packet
+		data = packet[12:]	#get data from packet
+
 		path_id, start_time, sequence_number = struct.unpack('bii', headers)	#get path_id and time_stamp from headers
 		end_time = int(time.time())
 
@@ -71,8 +73,6 @@ try:
 				Dj.append((t2[i]-t1[i]) - (t2[i-1]-t1[i-1])) #Get array of delays
 		j = np.array(Dj)
 		jitter = j.mean() #Jitter is meand deviation of delays 
-
-		data = packet[8:]	#get data from packet
 		
 		count+=1
 		#kill.set()
