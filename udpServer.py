@@ -56,8 +56,8 @@ try:
 		print("Waiting for client...")
 		packet,addr = sock.recvfrom(1024)	        #receive data from client
 		
-		headers = packet[0:8] #get headers from packet
-		path_id, start_time = struct.unpack('bi', headers)	#get path_id and time_stamp from headers
+		headers = packet[0:12] #get headers from packet
+		path_id, start_time, sequence_number = struct.unpack('bii', headers)	#get path_id and time_stamp from headers
 		end_time = int(time.time())
 
 		delay = end_time - start_time
@@ -110,6 +110,7 @@ try:
 		print("End Time: ", end_time)
 
 		print("Path ID: ", path_id)
+		print("Sequence number: ", sequence_number)
 		print("Delay: ", delay, "s")
 
 		print("Jitter: ", jitter)
