@@ -8,6 +8,7 @@ import cv2
 import sys
 import os
 import _pickle as cPickle
+import numpy as np
 
 class Path:
     def __init__(self, id, socket):
@@ -25,12 +26,27 @@ def create_transport_paths() -> Queue:
 
     return queue
 
+def best_path(data):
+    min = data[0][0]
+    count = 0
+    for d in data:
+        if d[0] < min:
+            min = d[0]
+            best = count
+        count = count + 1
+    return best
+    
+    data[i-1] = [len(delay_dict[i]), avg[i-1]]
+
 sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)      # For UDP
 
 server_ip = "127.0.0.1" #socket.gethostbyname("")	 	# Host IP
 server_port = 12345			        # specified port to connect
 
 paths_count = 5
+
+udp_host =  "127.0.0.1" #socket.gethostbyname("")	        # Host IP
+udp_port = 12345			                # specified port to connect
 
 print("UDP target IP:", server_ip)
 print("UDP target Port:", server_port)
@@ -40,7 +56,13 @@ file_path = os.path.abspath(os.getcwd()) + "/short_video.mp4"
 
 msg = [] # TODO: Delete if not needed
 
+delay_dict = {1: [], 2: [], 3: [], 4: [], 5: []}
+
+data = [[], [], [], [], []]
+
 queue = create_transport_paths()
+
+id = 0
 
 # Read video file frames
 input_video = cv2.VideoCapture(file_path)
@@ -71,13 +93,35 @@ else:
 
                 time_stamp = int(time.time())
                 headers = struct.pack('bii', path.id, time_stamp, sequence_number)
-
+   
                 subframe = frame_str[int(i*package_size):int((i+1)*package_size)]
                 
                 path.socket.sendto(headers + bytes(subframe, encoding='utf-8'), path.target)
 
-                queue.put(path)
+                if id >= 40:
+                    best_path = best_path(data)
+                    path = Path(best_path, sock)
+                    queue.put(path)
+                else:
+                    queue.put(path)
                 sequence_number += 1
+
+                ## Receive in Client path_id, delay and sequence_number feedback from Server
+                print("Waiting for client...")
+                packet,addr = sock.recvfrom(1024)	
+                headers = packet[0:12] #get headers from packet
+                path_id, delay, sequence_number = struct.unpack('bii', headers)	#get path_id and time_stamp from headers
+                id= id + 1
+                delay_dict[path_id].append(delay)
+
+                for i in range(1,6):
+                    if len(delay_dict[i]) > 1:
+                        avg[i-1] = np.array(delay_dict[i]).mean()
+                    else:
+                        avg[i-1] = np.array(delay_dict[i])
+                        
+                    data[i-1] = [len(delay_dict[i]), avg[i-1]]        
+
             break
         else:
            pass

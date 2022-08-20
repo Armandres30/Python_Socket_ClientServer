@@ -41,9 +41,11 @@ try:
 		headers = packet[0:12] #get headers from packet
 		data = packet[12:]	#get data from packet
 
-		path_id, start_time, sequence_number = struct.unpack('bii', headers)	#get path_id and time_stamp from headers
+		path_id, start_time, sequence_number= struct.unpack('bii', headers)	#get path_id and time_stamp from headers
 
 		print("expected seq num, seq num", (expected_sequence_number, sequence_number))
+
+		# Calculation of Packet Loss
 		if(expected_sequence_number != sequence_number):
 			if(sequence_number in missing_packets):
 				missing_packets.remove(sequence_number)
@@ -87,8 +89,16 @@ try:
 		print("Size of Message: "+str(size))
 		print("Count Messages sent: " +  str(count))
 
-		print("Missing packets: ", missing_packets)
+		print("Packet Loss: ", missing_packets)
 		print("Number of missing packets: ", len(missing_packets))
 		print("Total bytes received: ",total)
+
+		print("Capacity: ", size)
+
+		headers = struct.pack('bii', path_id, delay, sequence_number)    
+		sock.sendto(headers, addr)
+		time.sleep(1)
+
+
 except KeyboardInterrupt:
     pass
