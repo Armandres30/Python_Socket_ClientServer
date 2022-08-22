@@ -25,12 +25,25 @@ def create_transport_paths() -> Queue:
 
     return queue
 
+def best_path(data):
+    min = data[0][0]
+    count = 0
+    for d in data:
+        if d[0] < min:
+            min = d[0]
+            best = count
+        count = count + 1
+    return best
+
+
 sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)      # For UDP
 
 server_ip = "127.0.0.1" #socket.gethostbyname("")	 	# Host IP
 server_port = 12345			        # specified port to connect
 
 paths_count = 5
+
+id = 0
 
 print("UDP target IP:", server_ip)
 print("UDP target Port:", server_port)
@@ -78,6 +91,37 @@ else:
 
                 queue.put(path)
                 sequence_number += 1
+
+                '''
+
+                # Additional steps for optimal path selection after 50 attempts (10 for each path selection)
+
+                if id >= 40:
+                    best_path = best_path(data)
+                    path = Path(best_path, sock)
+                    queue.put(path)
+                else:
+                    queue.put(path)
+                sequence_number += 1
+
+
+                ## Receive in Client path_id, delay and sequence_number feedback from Server
+                print("Waiting for client...")
+                packet,addr = sock.recvfrom(1024)	
+                headers = packet[0:12] #get headers from packet
+                path_id, delay, sequence_number = struct.unpack('bii', headers)	#get path_id and time_stamp from headers
+                id= id + 1
+                delay_dict[path_id].append(delay)
+
+                for i in range(1,6):
+                    if len(delay_dict[i]) > 1:
+                        avg[i-1] = np.array(delay_dict[i]).mean()
+                    else:
+                        avg[i-1] = np.array(delay_dict[i])
+                        
+                    data[i-1] = [len(delay_dict[i]), avg[i-1]]  
+                '''
+
             break
         else:
            pass

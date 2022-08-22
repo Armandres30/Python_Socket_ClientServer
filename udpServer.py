@@ -6,6 +6,7 @@ import struct
 import time
 from datetime import datetime
 import numpy as np
+import sys
 
 sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)      # For UDP
 
@@ -68,9 +69,15 @@ try:
 		
 		count+=1
 		size = len(data)	# get size of data
+		size2 = sys.getsizeof(packet)	# get size of data
 		databus.append(packet)
 		total = total + size
 		length = len(databus)
+
+		if delay:
+			capacity = size2/delay
+		else:
+			capacity = size2
 
 		
 		print("Received Message:",data," from ",addr)
@@ -90,5 +97,15 @@ try:
 		print("Missing packets: ", missing_packets)
 		print("Number of missing packets: ", len(missing_packets))
 		print("Total bytes received: ",total)
+
+		print("Capacity: ", capacity)
+
+		'''
+		headers = struct.pack('bii', path_id, delay, sequence_number)    
+		sock.sendto(headers, addr)
+		time.sleep(1)
+		'''
+
+
 except KeyboardInterrupt:
     pass
