@@ -1,14 +1,26 @@
-### First build docker image
-docker build . -t simple_server
-
-docker run -p 8000:8000 .
-
-## Ressource for multicasting implementation
-## https://wiki.python.org/moin/UdpCommunication
-##  https://tutorialmeta.com/question/python-udp-socket-has-packet-loss-every-65536-packets
-
-## https://github.com/houluy/UDP/blob/master/udp.py
+### Documentation for running the client-servers scripts
 
 ## Installation requirements
-pip install opencv-contrib-python
-pip install opencv-python
+# Install python in terminal
+# In Ubuntu
+sudo apt install python3 
+
+# In Mac
+brew update && brew upgrade python 
+
+# In Windows download and install from:
+https://www.python.org/downloads/
+
+# Pip installation requirements
+
+pip install pickle-mixin
+
+## Run scripts
+
+# First execute the server side through following command:
+
+python3 udpServer.py
+
+# Secondly execute the client side throught following command:
+
+python3 udpClient.py
