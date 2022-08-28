@@ -4,25 +4,40 @@ from queue import Queue
 import socket
 import time
 import struct
+from typing import List
 import cv2
 import sys
 import os
 import _pickle as cPickle
 
+server = ("127.0.0.1", 12345)
+reverse_path = socket.socket(socket.AF_INET,socket.SOCK_DGRAM) # Creates a UDP socket which will be used to receive the statistics from the server
+reverse_path.bind(('127.0.0.1', 54321))
+
+control_path = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # Creates a socket for sending control messages to the server
+
+paths_count = 5
+
+batch_size = 20
+
 class Path:
-    def __init__(self, id, socket):
+    def __init__(self, id, socket, delay):
         self.id = id
         self.socket = socket
-        self.target = (server_ip, server_port)
+        self.target = server
+        self.delay = delay
 
 def create_transport_paths() -> Queue:
+    # path_array = []
     queue = Queue(paths_count)
     
     for i in range(paths_count):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        path = Path(i + 1, sock)
+        path = Path(i + 1, sock, 0)
         queue.put(path)
+        # path_array.append(path)
 
+    # return path_array
     return queue
 
 def best_path(data):
@@ -35,93 +50,102 @@ def best_path(data):
         count = count + 1
     return best
 
+def get_headers(pathId, sequence_number):
+    time_stamp = int(time.time())
+    return struct.pack('bii', pathId, time_stamp, sequence_number)
 
-sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)      # For UDP
+def main():
+    id = 0
 
-server_ip = "127.0.0.1" #socket.gethostbyname("")	 	# Host IP
-server_port = 12345			        # specified port to connect
+    print('Connecting to server' + str(server[0]) + ':' + str(server[1]))
 
-paths_count = 5
+    # Get path to video = current_path + video filename
+    file_path = os.path.abspath(os.getcwd()) + "/short_video.mp4"
 
-id = 0
+    path_array = create_transport_paths()
 
-print("UDP target IP:", server_ip)
-print("UDP target Port:", server_port)
+    # Read video file frames
+    input_video = cv2.VideoCapture(file_path)
+    if input_video.isOpened() == False:
+        print("Video not found")
+        sys.exit(1)
+    else:
+        # Read until the video is completed
+        while(input_video.isOpened()):
+            # Capture frame by frame
+            ret, frame = input_video.read()
+            if ret == True:
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                cv2.imshow('frame',frame)
+                frame = cPickle.dumps(frame)
+                size = len(frame)
+                p = struct.pack('I', size)
+                frame_str = str(frame)
+                package_size = 1000
+                frame_size = len(frame)
+                elements = frame_size / package_size
 
-# Get path to video = current_path + video filename
-file_path = os.path.abspath(os.getcwd()) + "/short_video.mp4"
+                sequence_number = 1
+                current_position = 0
+                next_position = current_position + batch_size
 
-msg = [] # TODO: Delete if not needed
+                while next_position <= elements:
 
-queue = create_transport_paths()
+                    while current_position < next_position:
+                        path = path_array.get()
 
-# Read video file frames
-input_video = cv2.VideoCapture(file_path)
-if input_video.isOpened() == False:
-    print("Video not found")
-    sys.exit(1)
-else:
-    # Read until the video is completed
-    while(input_video.isOpened()):
-        # Capture frame by frame
-        ret, frame = input_video.read()
-        if ret == True:
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            cv2.imshow('frame',frame)
-            frame = cPickle.dumps(frame)
-            size = len(frame)
-            p = struct.pack('I', size)
-            msg.append(p + frame) # TODO: Delete if not needed 
-            frame_str = str(frame)
-            package_size = 1000
-            frame_size = len(frame)
-            elements = frame_size / package_size
-
-            sequence_number = 1
-
-            for i in range(0,int(elements)):
-                path = queue.get()
-
-                time_stamp = int(time.time())
-                headers = struct.pack('bii', path.id, time_stamp, sequence_number)
-
-                subframe = frame_str[int(i*package_size):int((i+1)*package_size)]
-                
-                path.socket.sendto(headers + bytes(subframe, encoding='utf-8'), path.target)
-
-                queue.put(path)
-                sequence_number += 1
-
-                '''
-
-                # Additional steps for optimal path selection after 50 attempts (10 for each path selection)
-
-                if id >= 40:
-                    best_path = best_path(data)
-                    path = Path(best_path, sock)
-                    queue.put(path)
-                else:
-                    queue.put(path)
-                sequence_number += 1
-
-
-                ## Receive in Client path_id, delay and sequence_number feedback from Server
-                print("Waiting for client...")
-                packet,addr = sock.recvfrom(1024)	
-                headers = packet[0:12] #get headers from packet
-                path_id, delay, sequence_number = struct.unpack('bii', headers)	#get path_id and time_stamp from headers
-                id= id + 1
-                delay_dict[path_id].append(delay)
-
-                for i in range(1,6):
-                    if len(delay_dict[i]) > 1:
-                        avg[i-1] = np.array(delay_dict[i]).mean()
-                    else:
-                        avg[i-1] = np.array(delay_dict[i])
+                        headers = get_headers(path.id, sequence_number)
+                        subframe = frame_str[int(current_position*package_size):int((current_position+1)*package_size)]
+                        packet = headers + bytes(subframe, encoding='utf-8')
                         
-                    data[i-1] = [len(delay_dict[i]), avg[i-1]]  
-                '''
+                        path.socket.sendto(packet, path.target)
 
-            break
-        else:
-           pass
+                        path_array.put(path)
+                        sequence_number += 1
+                        current_position += 1
+
+                    control_headers = get_headers(6, 0)
+                    control_packet = control_headers + 'BATCH_FIN'.encode('utf-8')
+                    control_path.sendto(control_packet, server)
+
+                    packet, addr = reverse_path.recvfrom(128)
+
+                    delays = list(map(int, packet.decode('utf-8').split(',')))
+                    # for curr_path in path_array:
+                    #     curr_path.delay = delays[curr_path.id - 1]
+                        
+                    # next_position = current_position + batch_size
+                    # next_position = next_position if elements > next_position else elements # Check if the next position is overflowing
+                    
+
+                    '''
+
+                    # Additional steps for optimal path selection after 50 attempts (10 for each path selection)
+
+                    if id >= 40:
+                        best_path = best_path(data)
+                        path = Path(best_path, sock)
+                        queue.put(path)
+                    else:
+                        queue.put(path)
+                    sequence_number += 1
+
+
+                    ## Receive in Client path_id, delay and sequence_number feedback from Server
+                    print("Waiting for client...")
+                    packet,addr = sock.recvfrom(1024)	
+                    headers = packet[0:12] #get headers from packet
+                    path_id, delay, sequence_number = struct.unpack('bii', headers)	#get path_id and time_stamp from headers
+                    id= id + 1
+                    delay_dict[path_id].append(delay)
+
+                    for i in range(1,6):
+                        if len(delay_dict[i]) > 1:
+                            avg[i-1] = np.array(delay_dict[i]).mean()
+                        else:
+                            avg[i-1] = np.array(delay_dict[i])
+                            
+                        data[i-1] = [len(delay_dict[i]), avg[i-1]]  
+                    '''
+
+main()

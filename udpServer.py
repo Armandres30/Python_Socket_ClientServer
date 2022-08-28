@@ -8,10 +8,16 @@ from datetime import datetime
 import numpy as np
 import sys
 
-sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)      # For UDP
+server_addr = ("127.0.0.1", 12345)
+main_path = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+main_path.bind(server_addr)
 
-udp_host =  "127.0.0.1" #socket.gethostbyname("")	        # Host IP
-udp_port = 12345			                # specified port to connect
+client_addr = ('127.0.0.1', 54321)
+reverse_path = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+def initialize_path_delays():
+	for i in range(paths_count):
+		path_delays.append([])
 
 databus = []
 count = 0
@@ -21,91 +27,87 @@ t1 = []
 t2 = []
 Dj = []
 
+path_delays = []
+paths_count = 5 # TODO: move to a common file
+
 expected_sequence_number = 1
 missing_packets = []
 
+initialize_path_delays()
 while True:
-	try:
-        # server must bind to an ip address and port
-		sock.bind((udp_host,udp_port))
-		print("Listening on Port:", udp_port)
-		break
-	except Exception:
-		print("ERROR: Cannot connect to Port:", udp_port)
-		udp_port += 1
+	print("Waiting for client...")
+	packet, addr = main_path.recvfrom(1024)	        #receive data from client
+	
+	headers = packet[0:12] #get headers from packet
+	data = packet[12:]	#get data from packet
 
-try:
-	while True:
-		print("Waiting for client...")
-		packet,addr = sock.recvfrom(1024)	        #receive data from client
-		
-		headers = packet[0:12] #get headers from packet
-		data = packet[12:]	#get data from packet
+	if(data.decode('utf-8').strip() == 'BATCH_FIN'):
+		result_array = []
+		for delay_arr in path_delays:
+			result_array.append(round(np.mean(delay_arr)))
 
-		path_id, start_time, sequence_number = struct.unpack('bii', headers)	#get path_id and time_stamp from headers
+		statistics_message = ','.join(map(str, result_array)).encode('utf-8')
+		reverse_path.sendto(statistics_message, client_addr)
 
-		print("expected seq num, seq num", (expected_sequence_number, sequence_number))
-		if(expected_sequence_number != sequence_number):
-			if(sequence_number in missing_packets):
-				missing_packets.remove(sequence_number)
-			else:
-				missing_packets.append(expected_sequence_number)
+		initialize_path_delays()
+		continue
 
-		expected_sequence_number += 1
 
-		end_time = int(time.time())
+	path_id, start_time, sequence_number = struct.unpack('bii', headers)	#get path_id and time_stamp from headers
 
-		delay = end_time - start_time
-
-		t1.append(start_time)
-		t2.append(end_time)
-
-		## Calculate jitter
-		if count > 1:
-			for i in range(1,count):
-				Dj.append((t2[i]-t1[i]) - (t2[i-1]-t1[i-1])) #Get array of delays
-		j = np.array(Dj)
-		jitter = j.mean() #Jitter is meand deviation of delays 
-		
-		count+=1
-		size = len(data)	# get size of data
-		size2 = sys.getsizeof(packet)	# get size of data
-		databus.append(packet)
-		total = total + size
-		length = len(databus)
-
-		if delay:
-			capacity = size2/delay
+	print("expected seq num, seq num", (expected_sequence_number, sequence_number))
+	if(expected_sequence_number != sequence_number):
+		if(sequence_number in missing_packets):
+			missing_packets.remove(sequence_number)
 		else:
-			capacity = size2
+			missing_packets.append(expected_sequence_number)
 
-		
-		print("Received Message:",data," from ",addr)
+	expected_sequence_number += 1
 
-		print("Start Time: ", start_time)
-		print("End Time: ", end_time)
+	end_time = int(time.time())
 
-		print("Path ID: ", path_id)
-		print("Sequence number: ", sequence_number)
-		print("Delay: ", delay, "s")
+	delay = end_time - start_time
+	path_delays[path_id - 1].append(delay)
 
-		print("Jitter: ", jitter)
+	t1.append(start_time)
+	t2.append(end_time)
 
-		print("Size of Message: "+str(size))
-		print("Count Messages sent: " +  str(count))
+	## Calculate jitter
+	if count > 1:
+		for delay_arr in range(1,count):
+			Dj.append((t2[delay_arr]-t1[delay_arr]) - (t2[delay_arr-1]-t1[delay_arr-1])) #Get array of delays
+	j = np.array(Dj)
+	jitter = j.mean() #Jitter is meand deviation of delays 
+	
+	count+=1
+	size = len(data)	# get size of data
+	size2 = sys.getsizeof(packet)	# get size of data
+	databus.append(packet)
+	total = total + size
+	length = len(databus)
 
-		print("Missing packets: ", missing_packets)
-		print("Number of missing packets: ", len(missing_packets))
-		print("Total bytes received: ",total)
+	if delay:
+		capacity = size2/delay
+	else:
+		capacity = size2
 
-		print("Capacity: ", capacity)
+	
+	print("Received Message:",data," from ",addr)
 
-		'''
-		headers = struct.pack('bii', path_id, delay, sequence_number)    
-		sock.sendto(headers, addr)
-		time.sleep(1)
-		'''
+	print("Start Time: ", start_time)
+	print("End Time: ", end_time)
 
+	print("Path ID: ", path_id)
+	print("Sequence number: ", sequence_number)
+	print("Delay: ", delay, "s")
 
-except KeyboardInterrupt:
-    pass
+	print("Jitter: ", jitter)
+
+	print("Size of Message: "+str(size))
+	print("Count Messages sent: " +  str(count))
+
+	print("Missing packets: ", missing_packets)
+	print("Number of missing packets: ", len(missing_packets))
+	print("Total bytes received: ",total)
+
+	print("Capacity: ", capacity)
