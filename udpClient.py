@@ -88,7 +88,7 @@ def main():
                 current_position = 0
                 next_position = current_position + constants.BATCH_SIZE
 
-                while next_position <= elements:
+                while current_position < elements:
 
                     while current_position < next_position:
                         path = path_array.get()
@@ -103,18 +103,19 @@ def main():
                         sequence_number += 1
                         current_position += 1
 
-                    send_control_message('BATCH_FIN')
+                    send_control_message(constants.BATCH_FIN_MSG)
 
                     packet, addr = reverse_path.recvfrom(128)
 
                     delays = list(map(int, packet.decode('utf-8').split(',')))
+                    
                     # for curr_path in path_array:
                     #     curr_path.delay = delays[curr_path.id - 1]
                         
-                    # next_position = current_position + batch_size
-                    # next_position = next_position if elements > next_position else elements # Check if the next position is overflowing
+                    next_position = current_position + constants.BATCH_SIZE
+                    next_position = next_position if elements > next_position else elements # Check if the next position is overflowing
                     
-    send_control_message('FIN')
-
+                send_control_message(constants.FIN_MSG)
+                return
 
 main()
