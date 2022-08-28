@@ -37,8 +37,8 @@ def main():
 
 	initialize_path_delays()
 
+	print("Waiting for client...")
 	while True:
-		print("Waiting for client...")
 		packet, addr = main_path.recvfrom(1024)	        #receive data from client
 		
 		headers = packet[0:12] # Extract the headers from the packet
