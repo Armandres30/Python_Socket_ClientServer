@@ -9,29 +9,25 @@ import cv2
 import sys
 import os
 import _pickle as cPickle
+import constants
 
-server = ("127.0.0.1", 12345)
 reverse_path = socket.socket(socket.AF_INET,socket.SOCK_DGRAM) # Creates a UDP socket which will be used to receive the statistics from the server
-reverse_path.bind(('127.0.0.1', 54321))
+reverse_path.bind(constants.CLIENT_ADDRESS)
 
 control_path = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # Creates a socket for sending control messages to the server
-
-paths_count = 5
-
-batch_size = 20
 
 class Path:
     def __init__(self, id, socket, delay):
         self.id = id
         self.socket = socket
-        self.target = server
+        self.target = constants.SERVER_ADDRESS
         self.delay = delay
 
 def create_transport_paths() -> Queue:
     # path_array = []
-    queue = Queue(paths_count)
+    queue = Queue(constants.PATHS_COUNT)
     
-    for i in range(paths_count):
+    for i in range(constants.PATHS_COUNT):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         path = Path(i + 1, sock, 0)
         queue.put(path)
@@ -54,10 +50,13 @@ def get_headers(pathId, sequence_number):
     time_stamp = int(time.time())
     return struct.pack('bii', pathId, time_stamp, sequence_number)
 
-def main():
-    id = 0
+def send_control_message(message):
+    control_headers = get_headers(6, 0)
+    control_packet = control_headers + message.encode('utf-8')
+    control_path.sendto(control_packet, constants.SERVER_ADDRESS)
 
-    print('Connecting to server' + str(server[0]) + ':' + str(server[1]))
+def main():
+    print('Connecting to server' + str(constants.SERVER_ADDRESS[0]) + ':' + str(constants.SERVER_ADDRESS[1]))
 
     # Get path to video = current_path + video filename
     file_path = os.path.abspath(os.getcwd()) + "/short_video.mp4"
@@ -87,7 +86,7 @@ def main():
 
                 sequence_number = 1
                 current_position = 0
-                next_position = current_position + batch_size
+                next_position = current_position + constants.BATCH_SIZE
 
                 while next_position <= elements:
 
@@ -104,9 +103,7 @@ def main():
                         sequence_number += 1
                         current_position += 1
 
-                    control_headers = get_headers(6, 0)
-                    control_packet = control_headers + 'BATCH_FIN'.encode('utf-8')
-                    control_path.sendto(control_packet, server)
+                    send_control_message('BATCH_FIN')
 
                     packet, addr = reverse_path.recvfrom(128)
 
@@ -117,35 +114,7 @@ def main():
                     # next_position = current_position + batch_size
                     # next_position = next_position if elements > next_position else elements # Check if the next position is overflowing
                     
+    send_control_message('FIN')
 
-                    '''
-
-                    # Additional steps for optimal path selection after 50 attempts (10 for each path selection)
-
-                    if id >= 40:
-                        best_path = best_path(data)
-                        path = Path(best_path, sock)
-                        queue.put(path)
-                    else:
-                        queue.put(path)
-                    sequence_number += 1
-
-
-                    ## Receive in Client path_id, delay and sequence_number feedback from Server
-                    print("Waiting for client...")
-                    packet,addr = sock.recvfrom(1024)	
-                    headers = packet[0:12] #get headers from packet
-                    path_id, delay, sequence_number = struct.unpack('bii', headers)	#get path_id and time_stamp from headers
-                    id= id + 1
-                    delay_dict[path_id].append(delay)
-
-                    for i in range(1,6):
-                        if len(delay_dict[i]) > 1:
-                            avg[i-1] = np.array(delay_dict[i]).mean()
-                        else:
-                            avg[i-1] = np.array(delay_dict[i])
-                            
-                        data[i-1] = [len(delay_dict[i]), avg[i-1]]  
-                    '''
 
 main()

@@ -7,16 +7,15 @@ import time
 from datetime import datetime
 import numpy as np
 import sys
+import constants
 
-server_addr = ("127.0.0.1", 12345)
 main_path = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-main_path.bind(server_addr)
+main_path.bind(constants.SERVER_ADDRESS)
 
-client_addr = ('127.0.0.1', 54321)
 reverse_path = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 def initialize_path_delays():
-	for i in range(paths_count):
+	for i in range(constants.PATHS_COUNT):
 		path_delays.append([])
 
 databus = []
@@ -28,7 +27,6 @@ t2 = []
 Dj = []
 
 path_delays = []
-paths_count = 5 # TODO: move to a common file
 
 expected_sequence_number = 1
 missing_packets = []
@@ -38,20 +36,24 @@ while True:
 	print("Waiting for client...")
 	packet, addr = main_path.recvfrom(1024)	        #receive data from client
 	
-	headers = packet[0:12] #get headers from packet
-	data = packet[12:]	#get data from packet
+	headers = packet[0:12] # Extract the headers from the packet
+	data = packet[12:]	# Extract the data message from the packet
 
-	if(data.decode('utf-8').strip() == 'BATCH_FIN'):
+	data_str = data.decode('utf-8').strip()
+
+	if(data_str == 'BATCH_FIN'):
 		result_array = []
 		for delay_arr in path_delays:
 			result_array.append(round(np.mean(delay_arr)))
 
 		statistics_message = ','.join(map(str, result_array)).encode('utf-8')
-		reverse_path.sendto(statistics_message, client_addr)
+		reverse_path.sendto(statistics_message, constants.CLIENT_ADDRESS)
 
 		initialize_path_delays()
 		continue
-
+	elif(data_str == 'FIN'):
+		print('The file was received successfully!')
+		break
 
 	path_id, start_time, sequence_number = struct.unpack('bii', headers)	#get path_id and time_stamp from headers
 
@@ -90,7 +92,6 @@ while True:
 		capacity = size2/delay
 	else:
 		capacity = size2
-
 	
 	print("Received Message:",data," from ",addr)
 
