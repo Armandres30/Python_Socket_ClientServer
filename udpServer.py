@@ -116,7 +116,7 @@ def main():
 		print("Size of Message: "+str(size))
 		print("Count Messages sent: " +  str(count))
 
-		print("Missing packets: ", missing_packets)
+		print("Packet Loss: ", missing_packets)
 		print("Number of missing packets: ", len(missing_packets))
 		print("Total bytes received: ",total)
 
