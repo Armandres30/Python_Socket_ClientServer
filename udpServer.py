@@ -23,6 +23,15 @@ def initialize_path_delays() -> List:
 	
 	return arr
 
+def check_missing_packet(expected_seq_num: int, actual_seq_num: int, missing_packets: List):
+	print("expected seq num, seq num", (expected_seq_num, actual_seq_num))
+	if(expected_seq_num != actual_seq_num):
+		if(actual_seq_num in missing_packets):
+			missing_packets.remove(actual_seq_num)
+		else:
+			missing_packets.append(expected_seq_num)
+
+
 def main():
 	databus = []
 	count = 0
@@ -41,14 +50,13 @@ def main():
 	while True:
 		packet, addr = main_path.recvfrom(1024)	        #receive data from client
 		
-		headers = packet[0:12] # Extract the headers from the packet
-		data = packet[12:]	# Extract the data message from the packet
+		headers = packet[0:12] # Take the headers from the packet
+		data = packet[12:]	# Take the data message from the packet
 
 		data_str = data.decode('utf-8').strip()
 
 		if(data_str == constants.BATCH_FIN_MSG):
 			result_array = []
-			print(path_delays)
 			for delay_arr in path_delays:
 				result_array.append(round(np.mean(delay_arr)))
 
@@ -62,14 +70,9 @@ def main():
 			print('The file was received successfully!')
 			return
 
-		path_id, start_time, sequence_number = struct.unpack('bii', headers)	#get path_id and time_stamp from headers
+		path_id, start_time, sequence_number = struct.unpack('bii', headers)	# Extract the Path ID, Timestamp and the Sequence number
 
-		print("expected seq num, seq num", (expected_sequence_number, sequence_number))
-		if(expected_sequence_number != sequence_number):
-			if(sequence_number in missing_packets):
-				missing_packets.remove(sequence_number)
-			else:
-				missing_packets.append(expected_sequence_number)
+		check_missing_packet(expected_sequence_number, sequence_number, missing_packets)
 
 		expected_sequence_number += 1
 
@@ -93,7 +96,6 @@ def main():
 		size2 = sys.getsizeof(packet)	# get size of data
 		databus.append(packet)
 		total = total + size
-		length = len(databus)
 
 		if delay:
 			capacity = size2/delay
@@ -107,7 +109,7 @@ def main():
 
 		print("Path ID: ", path_id)
 		print("Sequence number: ", sequence_number)
-		print("Delay: ", delay, "s")
+		print("Delay: ", delay, "ms")
 
 		print("Jitter: ", jitter)
 
